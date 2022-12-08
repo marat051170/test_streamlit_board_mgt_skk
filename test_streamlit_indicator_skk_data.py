@@ -11,6 +11,7 @@ st.title('Данные СКК')
 st.sidebar.header('Фильтры')
 
 bans_data = pd.read_excel('test_indicator_banned_for_exploitation.xlsx')
+bans_data = bans_data[bans_data['mgt_nomgt'] == 'МГТ']
 
 depot = st.sidebar.multiselect('Парк:', options=bans_data['assigned_organization_name'].unique(), default=bans_data['assigned_organization_name'].unique())
 months = st.sidebar.multiselect('Месяцы:', options=bans_data['month'].unique(), default=bans_data['month'].unique())
