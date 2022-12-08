@@ -29,6 +29,7 @@ st.bar_chart(bans_data_filtered, y='indicator')
 
 
 san_violation_data = pd.read_excel('test_indicator_sanitary_condition_violations.xlsx')
+san_violation_data = san_violation_data[san_violation_data['mgt_nomgt'] == 'МГТ']
 san_violation_data_filtered = san_violation_data.query('assigned_organization_name == @depot & month == @months & Тип_ТС == @vehicle_types')
 
 san_violation_data_filtered['number_of_vehicles'] = san_violation_data_filtered['number_of_vehicles'].fillna(0)
