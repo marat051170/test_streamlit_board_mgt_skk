@@ -6,7 +6,7 @@ from isoweek import Week
 
 
 
-st.set_page_config(page_title='Запрет к эксплуатации', page_icon=':bar_chart:', layout='wide')
+st.set_page_config(page_title='Показатели из СКК', page_icon=':bar_chart:', layout='wide')
 st.title('Данные СКК')
 st.sidebar.header('Фильтры')
 
