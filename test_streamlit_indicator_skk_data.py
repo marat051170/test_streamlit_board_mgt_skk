@@ -10,7 +10,7 @@ st.set_page_config(page_title='Запрет к эксплуатации', page_i
 st.title('Данные СКК')
 st.sidebar.header('Фильтры')
 
-bans_data = pd.read_excel(f'test_indicator_banned_for_exploitation.xlsx')
+bans_data = pd.read_excel('test_indicator_banned_for_exploitation.xlsx')
 
 mgt = st.sidebar.multiselect('Парк МГТ:', options=bans_data['mgt_nomgt'].unique(), default=bans_data['mgt_nomgt'].unique())
 months = st.sidebar.multiselect('Месяцы:', options=bans_data['month'].unique(), default=bans_data['month'].unique())
@@ -27,7 +27,7 @@ st.subheader('Количество ТС, выявленных на выпуск�
 st.bar_chart(bans_data_filtered, y='indicator')
 
 
-san_violation_data = pd.read_excel(f'test_indicator_sanitary_condition_violations.xlsx')
+san_violation_data = pd.read_excel('test_indicator_sanitary_condition_violations.xlsx')
 san_violation_data_filtered = san_violation_data.query('mgt_nomgt == @mgt & month == @months & Тип_ТС == @vehicle_types')
 
 san_violation_data_filtered['number_of_vehicles'] = san_violation_data_filtered['number_of_vehicles'].fillna(0)
