@@ -60,7 +60,10 @@ bans_data_filtered_unique_vehicles_gr['Количество запретов н�
     'Запрет'] / bans_data_filtered_unique_vehicles_gr['проверено_ТС'] * 100
 
 st.subheader('Количество ТС, выявленных на выпуске с нарушениями, запрещающими эксплуатацию, ед. (на 100 проверенных ТС)')
-st.bar_chart(bans_data_filtered_unique_vehicles_gr, y='Количество запретов на 100 ТС')
+st.bar_chart(bans_data_filtered_unique_vehicles_gr, y='Количество запретов на 100 ТС', use_container_width=True)
+
+bans_data_filtered = bans_data_filtered[bans_data_filtered['Запрет'] == 1]
+st.dataframe(bans_data_filtered[['week_name', 'Парк', 'Наименование', 'type_name']], use_container_width=True)
 
 
 # Sanitury violations ---------------------------------------------------------------
@@ -77,14 +80,20 @@ sani_violation_data_filtered_unique_vehicles_gr['Количество наруш
     'Неудовлетворительное санитарное состояние ТС'] / sani_violation_data_filtered_unique_vehicles_gr['проверено_ТС'] * 100
 
 st.subheader('Количество нарушений требований к санитарному состоянию ТС, ед. (на 100 проверенных ТС)')
-st.bar_chart(sani_violation_data_filtered_unique_vehicles_gr, y='Количество нарушений на 100 ТС')
+st.bar_chart(sani_violation_data_filtered_unique_vehicles_gr, y='Количество нарушений на 100 ТС', use_container_width=True)
+
+sani_violation_data_filtered = sani_violation_data_filtered[sani_violation_data_filtered['Неудовлетворительное санитарное состояние ТС'] == 1]
+st.dataframe(sani_violation_data_filtered[['week_name', 'Парк', 'Наименование', 'type_name']],  use_container_width=True)
 
 
 # Territory -------------------------------------------------------------------------
 
 terr_violation_data_filtered = get_territory_violation_data().query(
     'Перевозчик == @carrier & month == @months & Филиал == @branсhes & Парк == @depots').copy()
-terr_violation_data_filtered = terr_violation_data_filtered.groupby(by=['week_name']).sum()[['Количество нарушений']]
+terr_violation_data_filtered_gr = terr_violation_data_filtered.groupby(by=['week_name']).sum()[['Количество нарушений']]
 
 st.subheader('Количество нарушений на территории и чрезвычайные происшествия, ед.')
-st.bar_chart(terr_violation_data_filtered, y='Количество нарушений')
+st.bar_chart(terr_violation_data_filtered_gr, y='Количество нарушений', use_container_width=True)
+
+
+st.dataframe(terr_violation_data_filtered, use_container_width=True)
