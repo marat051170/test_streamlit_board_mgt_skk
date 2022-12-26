@@ -1,99 +1,145 @@
 import pandas as pd
 import plotly.express as px
 import streamlit as st
-from isoweek import Week
+import altair as alt
 
+
+# Data ----------------------------------------------------------------------------
 
 @st.cache
 def get_bans_data():
-    bans_data = pd.read_excel('test_indicator_banned_for_exploitation.xlsx')
-    return bans_data
+    df = pd.read_excel('test_indicator_banned_for_exploitation.xlsx')
+    return df
 
+@st.cache
+def get_driver_violations_data():
+    df = pd.read_excel('test_indicator_driver_violation.xlsx')
+    return df
 
 @st.cache
 def get_sani_violation_data():
-    sani_violation_data = pd.read_excel('test_indicator_sanitary_condition_violations.xlsx')
-    return sani_violation_data
-
+    df = pd.read_excel('test_indicator_sanitary_condition_violations.xlsx')
+    return df
 
 @st.cache
 def get_territory_violation_data():
-    territory_violation_data = pd.read_excel('test_indicator_territory_violations.xlsx')
-    return territory_violation_data
+    df = pd.read_excel('test_indicator_territory_violations.xlsx')
+    return df
+
+# ---------------------------------------------------------------------------------
 
 
-st.set_page_config(page_title='Показатели из СКК', page_icon=':bar_chart:', layout='wide')
-st.title('Показатели на данных СКК')
+def add_empty_rows(n):
+    for i in range(1, n+1):
+        st.markdown('#')
+
+# ---------------------------------------------------------------------------------
+
+st.set_page_config(page_title='СКК', page_icon=':bar_chart:', layout='wide')
 st.sidebar.header('Фильтры')
 
 
 # Filters -------------------------------------------------------------------------
 
-cols_for_filters = ['month', 'Перевозчик', 'Филиал', 'Парк']
-filters_values = pd.concat([get_bans_data()[cols_for_filters], get_sani_violation_data()[cols_for_filters]], sort=False).drop_duplicates()
-filters_values = pd.concat([filters_values, get_territory_violation_data()[cols_for_filters]], sort=False)
+cols_for_filters = ['week_name']
+filters_values = pd.concat([get_bans_data()[cols_for_filters], get_driver_violations_data()[cols_for_filters]], sort=False).drop_duplicates()
+filters_values = pd.concat([filters_values, get_sani_violation_data()[cols_for_filters]], sort=False).drop_duplicates()
+filters_values = pd.concat([filters_values, get_territory_violation_data()[cols_for_filters]], sort=False).drop_duplicates()
 
-carrier = st.sidebar.multiselect('Перевозчик:', options=filters_values['Перевозчик'].unique(), default=filters_values['Перевозчик'].unique())
-filters_values_carrier = filters_values.query('Перевозчик == @carrier')
-
-months = st.sidebar.multiselect('Месяцы:', options=filters_values_carrier['month'].unique(), default=filters_values_carrier['month'].unique())
-filters_values_carrier_month = filters_values_carrier.query('month == @months')
-
-branсhes = st.sidebar.multiselect(
-    'Филиал:', options=filters_values_carrier_month['Филиал'].unique(), default=filters_values_carrier_month['Филиал'].unique())
-filters_values_carrier_month_branches = filters_values_carrier_month.query('Филиал == @branсhes')
-
-depots = st.sidebar.multiselect(
-    'Парк:', options=filters_values_carrier_month_branches['Парк'].unique(), default=filters_values_carrier_month_branches['Парк'].unique())
-filters_values_carrier_month_branches = filters_values_carrier_month_branches.query('Парк == @depots')
+week = st.sidebar.selectbox('Неделя:', options=sorted(filters_values['week_name'].unique(), reverse=True))
+filters_values_weeks = filters_values.query('week_name == @week')
 
 
-# Bans ----------------------------------------------------------------------------
+# ---------------------------------------------------------------------------------
 
-bans_data_filtered = get_bans_data().query('Перевозчик == @carrier & month == @months & Филиал == @branсhes & Парк == @depots').copy()
-bans_data_filtered['проверено_ТС'] = 1
-bans_data_filtered_unique_vehicles_gr = bans_data_filtered.groupby(by=['week_name', 'Наименование']).sum()[['Запрет', 'проверено_ТС']].reset_index()
-for col in ['Запрет', 'проверено_ТС']:
-    bans_data_filtered_unique_vehicles_gr[col] = bans_data_filtered_unique_vehicles_gr[col].apply(lambda x: 1 if x != 0 else x)
-bans_data_filtered_unique_vehicles_gr = bans_data_filtered_unique_vehicles_gr.groupby(by=['week_name']).sum()[['Запрет', 'проверено_ТС']]
-bans_data_filtered_unique_vehicles_gr['Количество запретов на 100 ТС'] = bans_data_filtered_unique_vehicles_gr[
-    'Запрет'] / bans_data_filtered_unique_vehicles_gr['проверено_ТС'] * 100
+st.title(f"4: Соблюдение требований ГКУ ОП за {week.split('_')[1]}")
+st.markdown('***ВНИМАНИЕ! Дорабатывается и дополняется для валидации, целевой дэшборд будет иметь другой вид !***')
 
-st.subheader('Количество ТС, выявленных на выпуске с нарушениями, запрещающими эксплуатацию, ед. (на 100 проверенных ТС)')
-st.bar_chart(bans_data_filtered_unique_vehicles_gr, y='Количество запретов на 100 ТС', use_container_width=True)
+add_empty_rows(2)
 
-bans_data_filtered = bans_data_filtered[bans_data_filtered['Запрет'] == 1]
-st.dataframe(bans_data_filtered[['week_name', 'Парк', 'Наименование', 'type_name']], use_container_width=True)
+# Bans & Sanitary violations ------------------------------------------------------
+
+bans_filtered = get_bans_data()
+bans_gr = bans_filtered.pivot_table(index=['week_name', 'Филиал'], values=['проверено', 'запрет'], aggfunc='sum').reset_index()
+sans_filtered = get_sani_violation_data()
+sans_gr = sans_filtered.pivot_table(
+    index=['week_name', 'Филиал'], values=['проверено', 'санитарное_состояние'], aggfunc='sum').reset_index()
+data = pd.merge(bans_gr, sans_gr.drop('проверено', axis=1), on=['week_name', 'Филиал'], how='left')
+data['всего_нарушений'] = data['запрет'] + data['санитарное_состояние']
+data['запрет'] = data['запрет'] / data['проверено'] * 100
+data['санитарное_состояние'] = data['санитарное_состояние'] / data['проверено'] * 100
+data['week_number'] = data['week_name'].apply(lambda x: int(x.split('_')[0]))
+for col in ['запрет', 'санитарное_состояние']:
+    data[col] = data[col].apply(lambda x: round(x, 1))
+
+graph_data = data.query('week_name == @week').copy()
+graph_data = pd.melt(graph_data, id_vars=['week_number', 'week_name', 'Филиал', 'проверено', 'всего_нарушений'])
+graph_data['variable'] = graph_data['variable'].replace('санитарное_состояние', 'сан_сост.', regex=True)
+graph_data['Филиал'] = graph_data['Филиал'] + ' (' + graph_data['всего_нарушений'].astype(int).astype(str) + ')'
+
+select_week = alt.selection_single(init={'week_number': int(week.split('_')[0])})
+pink_blue = alt.Scale(domain=('запрет', 'сан_сост.'), range=["steelblue", "salmon"])
+chart = alt.Chart(graph_data).mark_bar().encode(
+    x=alt.X('variable:N', title=None),
+    y=alt.Y('value:Q', scale=alt.Scale(domain=(0, max(graph_data['value'])))),
+    color=alt.Color('variable:N', scale=pink_blue, legend=None),
+    column='Филиал:O'
+    ).properties(
+        width=100
+    ).add_selection(
+        select_week
+    ).transform_calculate(
+        "Нарушение", alt.expr.if_(alt.datum.variable == 'запрет', "Запрет", "Сан. состояние")
+    ).transform_filter(
+        select_week
+    ).configure_facet(
+        spacing=8
+    )
 
 
-# Sanitury violations ---------------------------------------------------------------
+curr_week_number = int(week.split('_')[0])
+prev_week_number = (curr_week_number - 1) if curr_week_number - 1 != 1 else 52
+metric_data = data.query('week_number == @curr_week_number | week_number == @prev_week_number').copy()
+metric_data['prev_curr_week'] = metric_data['week_number'].apply(lambda x: 'curr' if x == curr_week_number else 'prev')
+metric_data['нарушений_100_ТС'] = metric_data['запрет'] + metric_data['санитарное_состояние']
+metric_data = metric_data.pivot_table(index='Филиал', columns='prev_curr_week', values='нарушений_100_ТС', aggfunc='sum').reset_index()
+metric_data['delta'] = metric_data['curr'] - metric_data['prev']
+metric_data = metric_data.sort_values('curr', ascending=False)
 
-sani_violation_data_filtered = get_sani_violation_data().query('Перевозчик == @carrier & month == @months & Филиал == @branсhes & Парк == @depots').copy()
-sani_violation_data_filtered['проверено_ТС'] = 1
-sani_violation_data_filtered_unique_vehicles_gr = sani_violation_data_filtered.groupby(by=[
-    'week_name', 'Наименование']).sum()[['Неудовлетворительное санитарное состояние ТС', 'проверено_ТС']].reset_index()
-for col in ['Неудовлетворительное санитарное состояние ТС', 'проверено_ТС']:
-    sani_violation_data_filtered_unique_vehicles_gr[col] = sani_violation_data_filtered_unique_vehicles_gr[col].apply(lambda x: 1 if x != 0 else x)
-sani_violation_data_filtered_unique_vehicles_gr = sani_violation_data_filtered_unique_vehicles_gr.groupby(by=[
-    'week_name']).sum()[['Неудовлетворительное санитарное состояние ТС', 'проверено_ТС']]
-sani_violation_data_filtered_unique_vehicles_gr['Количество нарушений на 100 ТС'] = sani_violation_data_filtered_unique_vehicles_gr[
-    'Неудовлетворительное санитарное состояние ТС'] / sani_violation_data_filtered_unique_vehicles_gr['проверено_ТС'] * 100
+col1, col2 = st.columns([2, 1], gap='small')
+with col1:
+    st.markdown('**Количество замечаний к ТС, на проверенных 100 ТС**')
+    st.altair_chart(chart, theme='streamlit')
+with col2:
+    st.markdown('**Худшие показатели по филиалам**')
+    st.write('По количеству нарушений на 100 проверенных ТС')
+    add_empty_rows(1)
+    st.metric(
+        label=metric_data['Филиал'].iloc[0],
+        value=int(round(metric_data['curr'].iloc[0], 0)),
+        delta=int(round(metric_data['delta'].iloc[0], 0)),
+        delta_color='inverse')
+    add_empty_rows(1)
+    st.metric(
+        label=metric_data['Филиал'].iloc[1],
+        value=int(round(metric_data['curr'].iloc[1], 0)),
+        delta=int(round(metric_data['delta'].iloc[1], 0)),
+        delta_color='inverse')
+    add_empty_rows(1)
+    st.metric(
+        label=metric_data['Филиал'].iloc[2],
+        value=int(round(metric_data['curr'].iloc[2], 0)),
+        delta=int(round(metric_data['delta'].iloc[2], 0)),
+        delta_color='inverse')
 
-st.subheader('Количество нарушений требований к санитарному состоянию ТС, ед. (на 100 проверенных ТС)')
-st.bar_chart(sani_violation_data_filtered_unique_vehicles_gr, y='Количество нарушений на 100 ТС', use_container_width=True)
-
-sani_violation_data_filtered = sani_violation_data_filtered[sani_violation_data_filtered['Неудовлетворительное санитарное состояние ТС'] == 1]
-st.dataframe(sani_violation_data_filtered[['week_name', 'Парк', 'Наименование', 'type_name']],  use_container_width=True)
 
 
-# Territory -------------------------------------------------------------------------
-
-terr_violation_data_filtered = get_territory_violation_data().query(
-    'Перевозчик == @carrier & month == @months & Филиал == @branсhes & Парк == @depots').copy()
-terr_violation_data_filtered_gr = terr_violation_data_filtered.groupby(by=['week_name']).sum()[['Количество нарушений']]
-
-st.subheader('Количество нарушений на территории и чрезвычайные происшествия, ед.')
-st.bar_chart(terr_violation_data_filtered_gr, y='Количество нарушений', use_container_width=True)
+# Sanitury violations -------------------------------------------------------------
 
 
-st.dataframe(terr_violation_data_filtered, use_container_width=True)
+# Driver violations ---------------------------------------------------------------
+
+
+# Territory violations-------------------------------------------------------------
+
+
