@@ -85,7 +85,7 @@ chart = alt.Chart(graph_data).mark_bar().encode(
     color=alt.Color('variable:N', scale=pink_blue, legend=None),
     column='Филиал:O'
     ).properties(
-        width=100
+        width=125
     ).add_selection(
         select_week
     ).transform_calculate(
@@ -106,14 +106,56 @@ metric_data = metric_data.pivot_table(index='Филиал', columns='prev_curr_w
 metric_data['delta'] = metric_data['curr'] - metric_data['prev']
 metric_data = metric_data.sort_values('curr', ascending=False)
 
-col1, col2 = st.columns([2, 1], gap='small')
+
+
+# Driver violations ---------------------------------------------------------------
+
+driver_violations = get_driver_violations_data()
+dr_data = driver_violations.pivot_table(
+    index=['week_name', 'Филиал'], values=['проверено', 'замечание_водителю_корп_форма'], aggfunc='sum').reset_index()
+dr_data['week_number'] = dr_data['week_name'].apply(lambda x: int(x.split('_')[0]))
+graph_dr_data = dr_data.query('week_name == @week').copy()
+
+
+metric_dr_data = dr_data.query('week_number == @curr_week_number | week_number == @prev_week_number').copy()
+metric_dr_data['prev_curr_week'] = metric_dr_data['week_number'].apply(lambda x: 'curr' if x == curr_week_number else 'prev')
+metric_dr_data = metric_dr_data.pivot_table(
+    index='Филиал', columns='prev_curr_week', values='замечание_водителю_корп_форма', aggfunc='sum').reset_index()
+metric_dr_data['delta'] = metric_dr_data['curr'] - metric_dr_data['prev']
+metric_dr_data = metric_dr_data.sort_values('curr', ascending=False)
+
+
+# Territory violations-------------------------------------------------------------
+
+terr_violations = get_territory_violation_data()
+terr_data = terr_violations.pivot_table(
+    index=['week_name', 'Филиал'], values='Количество нарушений', aggfunc='sum').reset_index()
+terr_data['week_number'] = terr_data['week_name'].apply(lambda x: int(x.split('_')[0]))
+graph_terr_data = terr_data.query('week_name == @week').copy()
+terr_chart = alt.Chart(graph_terr_data).mark_bar(color='grey').encode(x='Филиал', y='Количество нарушений').properties(width=855)
+
+metric_terr_data = terr_data.query('week_number == @curr_week_number | week_number == @prev_week_number').copy()
+metric_terr_data['prev_curr_week'] = metric_terr_data['week_number'].apply(lambda x: 'curr' if x == curr_week_number else 'prev')
+metric_terr_data = metric_terr_data.pivot_table(
+    index='Филиал', columns='prev_curr_week', values='Количество нарушений', aggfunc='sum').reset_index()
+metric_terr_data['delta'] = metric_terr_data['curr'] - metric_terr_data['prev']
+metric_terr_data = metric_terr_data.sort_values('curr', ascending=False)
+
+
+col1, col2, col3 = st.columns([4, 1, 2], gap='small')
 with col1:
     st.markdown('**Количество замечаний к ТС, на проверенных 100 ТС**')
     st.altair_chart(chart, theme='streamlit')
-with col2:
+    add_empty_rows(1)
+    st.markdown('**Количество замечаний к водителям в части ношения корпорпоративной формы**')
+    st.bar_chart(graph_dr_data, x='Филиал', y='замечание_водителю_корп_форма')
+    add_empty_rows(1)
+    st.markdown('**Количество замечаний к состоянию площадок**')
+    st.altair_chart(terr_chart, theme="streamlit")
+
+with col3:
     st.markdown('**Худшие показатели по филиалам**')
     st.write('По количеству нарушений на 100 проверенных ТС')
-    add_empty_rows(1)
     st.metric(
         label=metric_data['Филиал'].iloc[0],
         value=int(round(metric_data['curr'].iloc[0], 0)),
@@ -131,15 +173,43 @@ with col2:
         value=int(round(metric_data['curr'].iloc[2], 0)),
         delta=int(round(metric_data['delta'].iloc[2], 0)),
         delta_color='inverse')
-
-
-
-# Sanitury violations -------------------------------------------------------------
-
-
-# Driver violations ---------------------------------------------------------------
-
-
-# Territory violations-------------------------------------------------------------
-
+    add_empty_rows(1)
+    st.write('По количеству замечаний к водителям')
+    st.metric(
+        label=metric_dr_data['Филиал'].iloc[0],
+        value=int(round(metric_dr_data['curr'].iloc[0], 0)),
+        delta=int(round(metric_dr_data['delta'].iloc[0], 0)),
+        delta_color='inverse')
+    add_empty_rows(1)
+    st.metric(
+        label=metric_dr_data['Филиал'].iloc[1],
+        value=int(round(metric_dr_data['curr'].iloc[1], 0)),
+        delta=int(round(metric_dr_data['delta'].iloc[1], 0)),
+        delta_color='inverse')
+    add_empty_rows(1)
+    st.metric(
+        label=metric_dr_data['Филиал'].iloc[2],
+        value=int(round(metric_dr_data['curr'].iloc[2], 0)),
+        delta=int(round(metric_dr_data['delta'].iloc[2], 0)),
+        delta_color='inverse')
+    add_empty_rows(1)
+    st.write('По количеству замечаний к площадкам')
+    st.metric(
+        label=metric_terr_data['Филиал'].iloc[0],
+        value=int(round(metric_terr_data['curr'].iloc[0], 0)),
+        delta=int(round(metric_terr_data['delta'].iloc[0], 0)),
+        delta_color='inverse')
+    add_empty_rows(1)
+    st.metric(
+        label=metric_terr_data['Филиал'].iloc[1],
+        value=int(round(metric_terr_data['curr'].iloc[1], 0)),
+        delta=int(round(metric_terr_data['delta'].iloc[1], 0)),
+        delta_color='inverse')
+    add_empty_rows(1)
+    st.metric(
+        label=metric_terr_data['Филиал'].iloc[2],
+        value=int(round(metric_terr_data['curr'].iloc[2], 0)),
+        delta=int(round(metric_terr_data['delta'].iloc[2], 0)),
+        delta_color='inverse')
+    add_empty_rows(1)
 
